@@ -121,6 +121,39 @@ compreg.covar.loglik <- function(pars, A, G, X, C, P,B.inv) {
     return(-ll)
 }
 
+pairedCompReg <- function(yout, ypred, X = NULL, boot.ci = FALSE, R = 500, accelerate = FALSE) {
+    #C <- ncol(yout)
+    D1 <- ncol(yout)
+    D2 <- ncol(ypred)
+    if(is.null(X)) {
+        par0 <- rep(1/D1, D1*D2)
+        if(accelerate) {
+            em_output <- squarem(par = par0, fixptfn = compreg.em,
+                                 objfn = compreg.loglik, control = list(tol = 1.e-8),
+                                 A = yout, G = ypred, D1 = D1, D2 = D2)  
+        } else {
+            em_output <- fpiter(par = par0, fixptfn = compreg.em,
+                                objfn = compreg.loglik, control = list(tol = 1.e-8),
+                                A = yout, G = ypred, D1 = D1, D2 = D2)
+        }
+        M_est <- em_output$par
+        dim(M_est) <- c(D2, D1)
+        return(M_est)
+    } else{
+        P <- ncol(X)
+        # par0 <- rep(0, prod(dim(beta_array)))
+        par0 <- rep(0, P*C^2)
+        B.inv <- - 2 * (diag(C-1) + matrix(1,C-1,C-1)) %x% solve( t(X) %*% X )
+        em_output <- squarem(par = par0, fixptfn = compreg.covar.em,
+                             objfn = compreg.covar.loglik, control = list(tol = 1.e-8),
+                             A = yout, X = X, G = ypred, C = C, P = P, B.inv = B.inv)
+        beta_est <- em_output$par
+        dim(beta_est) <- c(P, C, C)
+        return(beta_est) 
+    }
+}
+
+
 bootCompReg <- function(data, ypred, X = NULL, indices) {
     yout_boot <- data[indices,]
     ypred_boot <- ypred[indices,]
@@ -148,39 +181,3 @@ bootCompReg <- function(data, ypred, X = NULL, indices) {
     }
 }
 
-pairedCompReg <- function(yout, ypred, X = NULL, boot.ci = FALSE, R = 500, accelerate = FALSE) {
-    #C <- ncol(yout)
-    D1 <- ncol(yout)
-    D2 <- ncol(ypred)
-    if(is.null(X)) {
-        par0 <- rep(1/D1, D1*D2)
-        if(accelerate) {
-            em_output <- squarem(par = par0, fixptfn = compreg.em,
-                                 objfn = compreg.loglik, control = list(tol = 1.e-8),
-                                 A = yout, G = ypred, D1 = D1, D2 = D2)  
-        } else {
-            em_output <- fpiter(par = par0, fixptfn = compreg.em,
-                                 objfn = compreg.loglik, control = list(tol = 1.e-8),
-                                 A = yout, G = ypred, D1 = D1, D2 = D2)
-        }
-        M_est <- em_output$par
-        dim(M_est) <- c(D2, D1)
-        if(boot.ci) {
-            M_boot <- boot(yout, statistic = bootCompReg, ypred = ypred, X = NULL,
-                           R = R) 
-            return(M_boot)
-        }
-        return(M_est)
-    } else{
-        P <- ncol(X)
-        # par0 <- rep(0, prod(dim(beta_array)))
-        par0 <- rep(0, P*C^2)
-        B.inv <- - 2 * (diag(C-1) + matrix(1,C-1,C-1)) %x% solve( t(X) %*% X )
-        em_output <- squarem(par = par0, fixptfn = compreg.covar.em,
-                             objfn = compreg.covar.loglik, control = list(tol = 1.e-8),
-                             A = yout, X = X, G = ypred, C = C, P = P, B.inv = B.inv)
-        beta_est <- em_output$par
-        dim(beta_est) <- c(P, C, C)
-        return(beta_est) 
-    }
-}

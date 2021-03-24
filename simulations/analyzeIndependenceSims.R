@@ -43,6 +43,15 @@ pval_summary  %>%
     filter(Mindex == 3, method == 'ILR') %>%
     mutate(typeIIerror = 1 - rejectProb)
 
+
+###################################
+### Equal rows b test
+equal_rows_df <- readRDS(here("simulations", "equalRowBTestResults.rds"))
+rejection_rates <-
+    equal_rows_df %>%
+    group_by(datagen, pairindex) %>%
+    summarise(reject = mean(p < .05))
+
 # pval_chisq_df <- readRDS(here("simulations", "pvalsIndependence.rds"))
 # 
 # pval_df <- bind_rows(mutate(pval_llr_df, method = "LLR"),
